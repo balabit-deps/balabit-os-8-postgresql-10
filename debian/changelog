@@ -1,0 +1,427 @@
+postgresql-10 (10.15-0ubuntu0.18.04.1) bionic-security; urgency=medium
+
+  * New upstream version.
+    + Block DECLARE CURSOR ... WITH HOLD and firing of deferred triggers
+      within index expressions and materialized view queries (Noah Misch)
+
+      This is essentially a leak in the security restricted operation sandbox
+      mechanism.  An attacker having permission to create non-temporary SQL
+      objects could parlay this leak to execute arbitrary SQL code as a
+      superuser.
+
+      The PostgreSQL Project thanks Etienne Stalmans for reporting this
+      problem. (CVE-2020-25695)
+
+    + Fix usage of complex connection-string parameters in pg_dump,
+      pg_restore, clusterdb, reindexdb, and vacuumdb (Tom Lane)
+
+      The -d parameter of pg_dump and pg_restore, or the --maintenance-db
+      parameter of the other programs mentioned, can be a connection string
+      containing multiple connection parameters rather than just a database
+      name.  In cases where these programs need to initiate additional
+      connections, such as parallel processing or processing of multiple
+      databases, the connection string was forgotten and just the basic
+      connection parameters (database name, host, port, and username) were
+      used for the additional connections.  This could lead to connection
+      failures if the connection string included any other essential
+      information, such as non-default SSL or GSS parameters. Worse, the
+      connection might succeed but not be encrypted as intended, or be
+      vulnerable to man-in-the-middle attacks that the intended connection
+      parameters would have prevented. (CVE-2020-25694)
+
+    + When psql's \connect command re-uses connection parameters, ensure that
+      all non-overridden parameters from a previous connection string are
+      re-used (Tom Lane)
+
+      This avoids cases where reconnection might fail due to omission of
+      relevant parameters, such as non-default SSL or GSS options. Worse, the
+      reconnection might succeed but not be encrypted as intended, or be
+      vulnerable to man-in-the-middle attacks that the intended connection
+      parameters would have prevented. This is largely the same problem as
+      just cited for pg_dump et al, although psql's behavior is more complex
+      since the user may intentionally override some connection parameters.
+      (CVE-2020-25694)
+
+    + Prevent psql's \gset command from modifying specially-treated variables
+      (Noah Misch)
+
+      \gset without a prefix would overwrite whatever variables the server
+      told it to.  Thus, a compromised server could set specially-treated
+      variables such as PROMPT1, giving the ability to execute arbitrary shell
+      code in the user's session.
+
+      The PostgreSQL Project thanks Nick Cleaton for reporting this problem.
+      (CVE-2020-25696)
+
+    + Details about these and many further changes can be found at:
+      https://www.postgresql.org/docs/10/static/release-10-15.html
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Thu, 12 Nov 2020 12:13:22 +0100
+
+postgresql-10 (10.14-0ubuntu0.18.04.1) bionic-security; urgency=medium
+
+  * New upstream release (LP: #1892335).
+    - Set a secure search_path in logical replication walsenders and apply
+      workers (Noah Misch)
+
+      A malicious user of either the publisher or subscriber database could
+      potentially cause execution of arbitrary SQL code by the role running
+      replication, which is often a superuser.  Some of the risks here are
+      equivalent to those described in CVE-2018-1058, and are mitigated in
+      this patch by ensuring that the replication sender and receiver execute
+      with empty search_path settings. (As with CVE-2018-1058, that change
+      might cause problems for under-qualified names used in replicated
+      tables' DDL.)  Other risks are inherent in replicating objects that
+      belong to untrusted roles; the most we can do is document that there is
+      a hazard to consider.
+      CVE-2020-14349
+
+    - Make contrib modules' installation scripts more secure (Tom Lane)
+
+      Attacks similar to those described in CVE-2018-1058 could be carried out
+      against an extension installation script, if the attacker can create
+      objects in either the extension's target schema or the schema of some
+      prerequisite extension.  Since extensions often require superuser
+      privilege to install, this can open a path to obtaining superuser
+      privilege.  To mitigate this risk, be more careful about the search_path
+      used to run an installation script; disable check_function_bodies within
+      the script; and fix catalog-adjustment queries used in some contrib
+      modules to ensure they are secure.  Also provide documentation to help
+      third-party extension authors make their installation scripts secure.
+      This is not a complete solution; extensions that depend on other
+      extensions can still be at risk if installed carelessly.
+      CVE-2020-14350
+
+    - Details about these and many further changes can be found at:
+      https://www.postgresql.org/docs/10/static/release-10-13.html
+      https://www.postgresql.org/docs/10/static/release-10-14.html
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Thu, 20 Aug 2020 11:29:28 +0200
+
+postgresql-10 (10.12-0ubuntu0.18.04.1) bionic-security; urgency=medium
+
+  * New upstream release (LP: #1863108)
+    - A dump/restore is not required however, if you use the contrib/intarray
+      extension with a GiST index, and you rely on indexed searches for the <@
+      operator, see the release notes for details in regard to a related fix.
+    - Add missing permissions checks for ALTER ... DEPENDS ON EXTENSION.
+      Marking an object as dependent on an extension did not have any
+      privilege check whatsoever.  This oversight allowed any user to mark
+      routines, triggers, materialized views, or indexes as droppable by
+      anyone able to drop an extension.  Require that the calling user own the
+      specified object (and hence have privilege to drop it). (CVE-2020-1720)
+    - Details about these and many further changes can be found at:
+      https://www.postgresql.org/docs/10/static/release-10-11.html
+      https://www.postgresql.org/docs/10/static/release-10-12.html
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Thu, 13 Feb 2020 15:18:22 +0100
+
+postgresql-10 (10.10-0ubuntu0.18.04.1) bionic-security; urgency=medium
+
+  * SECURITY UPDATE: New upstream release (LP: #1839058)
+    - Require schema qualification to cast to a temporary type when using
+      functional cast syntax (CVE-2019-10208)
+    - Fix failure of ALTER TABLE ... ALTER COLUMN TYPE when altering multiple
+      columns' types in one command. This fixes a regression introduced in the
+      most recent minor releases
+    - Details about these and many further changes can be found at:
+      https://www.postgresql.org/docs/10/static/release-10-10.html
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Tue, 06 Aug 2019 08:55:10 +0200
+
+postgresql-10 (10.9-0ubuntu0.18.04.1) bionic-security; urgency=medium
+
+  * New upstream release (LP: #1828012)
+    - Fix buffer-overflow hazards in SCRAM verifier parsing and libpq
+      CVE-2019-10164
+    - Fix failure of ALTER TABLE ... ALTER COLUMN TYPE when the table has
+      a partial exclusion constraint
+    - Fix failure of COMMENT command for comments on domain constraints
+    - Prevent possible memory clobber when there are duplicate columns in
+      a hash aggregate's hash key list
+    - Details about these and many further changes can be found at:
+      https://www.postgresql.org/docs/10/static/release-10-9.html
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Tue, 18 Jun 2019 13:11:36 +0200
+
+postgresql-10 (10.8-0ubuntu0.18.04.1) bionic-security; urgency=medium
+
+  * New upstream release(s) (LP: #1828012)
+    - Prevent row-level security policies from being bypassed via
+      selectivity estimators.
+      CVE-2019-10130
+    - Details about these and many further changes can be found at:
+      https://www.postgresql.org/docs/10/static/release-10-8.html
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Tue, 07 May 2019 11:20:35 +0200
+
+postgresql-10 (10.7-0ubuntu0.18.04.1) bionic; urgency=medium
+
+  * New upstream release (LP: #1815665)
+    - By default, panic instead of retrying after fsync() failure, to avoid
+      possible data corruption. A new server parameter "guc-data-sync-retry"
+      has been added to control this;
+    - d/p/pg-10-Disallow-setting-client_min_messages-higher-than-ERR.patch:
+      to retain SRU stability this patch reverts one of the changes which
+      disabled the error suppression by setting client_min_messages to
+      fatal or panic. Overall that means no change to the handling of
+      client_min_messages due to this upload.
+    - d/p/pg-10-Rename-rbtree.c-functions-to-use-rbt-prefix-not-rb-p.patch:
+      this change of 10.7 would break an external ABI/API exposed to
+      extensions. To avoid breaking those (especially those not in the Ubuntu
+      Archive that we can't control) this change of upstreams stable release
+      is reverted. Thereby the ABI/API is unchanged in regard to the rb_
+      function prefix by this new package upload to Ubuntu.
+    - Details about these and many further changes can be found at:
+      https://www.postgresql.org/docs/10/static/release-10-7.html
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Tue, 12 Feb 2019 21:25:34 +0100
+
+postgresql-10 (10.6-0ubuntu0.18.04.1) bionic-security; urgency=medium
+
+  * SECURITY UPDATE: Updated to 10.6 to fix security issue.
+    - Details about the new release can be found at
+      https://www.postgresql.org/docs/10/release-10-6.html
+    - CVE-2018-16850
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 13 Nov 2018 15:18:23 -0500
+
+postgresql-10 (10.5-0ubuntu0.18.04) bionic-security; urgency=medium
+
+  * New upstream release (LP: #1786938)
+    - Fix failure to reset libpq's state fully between connection attempts
+      .
+      An unprivileged user of dblink or postgres_fdw could bypass the checks
+      intended to prevent use of server-side credentials, such as a ~/.pgpass
+      file owned by the operating-system user running the server.  Servers
+      allowing peer authentication on local connections are particularly
+      vulnerable.  Other attacks such as SQL injection into a postgres_fdw
+      session are also possible. Attacking postgres_fdw in this way requires
+      the ability to create a foreign server object with selected connection
+      parameters, but any user with access to dblink could exploit the
+      problem. In general, an attacker with the ability to select the
+      connection parameters for a libpq-using application could cause
+      mischief, though other plausible attack scenarios are harder to think
+      of. Our thanks to Andrew Krasichkov for reporting this issue.
+      (CVE-2018-10915)
+    - Fix INSERT ... ON CONFLICT UPDATE through a view that isn't just SELECT
+      FROM ...
+      .
+      Erroneous expansion of an updatable view could lead to crashes or
+      attribute ... has the wrong type errors, if the view's SELECT list
+      doesn't match one-to-one with the underlying table's columns.
+      Furthermore, this bug could be leveraged to allow updates of columns
+      that an attacking user lacks UPDATE privilege for, if that user has
+      INSERT and UPDATE privileges for some other column(s) of the table. Any
+      user could also use it for disclosure of server memory.
+      (CVE-2018-10925)
+    - d/libecpg-dev.install: Add new pgtypes header.
+    - d/libpgtypes3.symbols: Add new pgtypes symbol.
+    - d/p/filter-debug-prefix-map: update to match 10.5
+    - update maintainers
+    - Details about these and other changes can be found at
+      https://www.postgresql.org/docs/10/static/release-10-5.html
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Tue, 14 Aug 2018 14:49:18 +0200
+
+postgresql-10 (10.4-0ubuntu0.18.04) bionic; urgency=medium
+
+  * New upstream release (LP: #1769888)
+    - A dump/restore is not required for those running 10.X.
+      However, if you use the adminpack extension, you should update it as
+      per the first changelog entry of the changelog.
+      (CVE-2018-1115)
+      Also, if the function marking mistakes mentioned in the first
+      changelog entry affect you, you will want to take steps to
+      correct your database catalogs.
+    - Details about changes can be found at
+      https://www.postgresql.org/docs/10/static/release-10-4.html
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Tue, 08 May 2018 15:17:41 +0200
+
+postgresql-10 (10.3-1) unstable; urgency=medium
+
+  * New upstream version.
+
+    If you run an installation in which not all users are mutually
+    trusting, or if you maintain an application or extension that is
+    intended for use in arbitrary situations, it is strongly recommended
+    that you read the documentation changes described in the first changelog
+    entry below, and take suitable steps to ensure that your installation or
+    code is secure.
+
+    Also, the changes described in the second changelog entry below may
+    cause functions used in index expressions or materialized views to fail
+    during auto-analyze, or when reloading from a dump.  After upgrading,
+    monitor the server logs for such problems, and fix affected functions.
+
+    + Document how to configure installations and applications to guard
+      against search-path-dependent trojan-horse attacks from other users
+
+      Using a search_path setting that includes any schemas writable by a
+      hostile user enables that user to capture control of queries and then
+      run arbitrary SQL code with the permissions of the attacked user.  While
+      it is possible to write queries that are proof against such hijacking,
+      it is notationally tedious, and it's very easy to overlook holes.
+      Therefore, we now recommend configurations in which no untrusted schemas
+      appear in one's search path.
+      (CVE-2018-1058)
+
+    + Avoid use of insecure search_path settings in pg_dump and other client
+      programs
+
+      pg_dump, pg_upgrade, vacuumdb and other PostgreSQL-provided applications
+      were themselves vulnerable to the type of hijacking described in the
+      previous changelog entry; since these applications are commonly run by
+      superusers, they present particularly attractive targets.  To make them
+      secure whether or not the installation as a whole has been secured,
+      modify them to include only the pg_catalog schema in their search_path
+      settings. Autovacuum worker processes now do the same, as well.
+
+      In cases where user-provided functions are indirectly executed by these
+      programs -- for example, user-provided functions in index expressions --
+      the tighter search_path may result in errors, which will need to be
+      corrected by adjusting those user-provided functions to not assume
+      anything about what search path they are invoked under.  That has always
+      been good practice, but now it will be necessary for correct behavior.
+      (CVE-2018-1058)
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Tue, 27 Feb 2018 12:54:34 +0100
+
+postgresql-10 (10.2-1) unstable; urgency=medium
+
+  * New upstream version.
+    + Fix processing of partition keys containing multiple expressions
+      (CVE-2018-1052)
+
+    + Ensure that all temporary files made by pg_upgrade are
+      non-world-readable (CVE-2018-1053)
+
+    + Change the behavior of contrib/cube's cube ~> int operator to make it
+      compatible with KNN search.
+
+      The meaning of the second argument (the dimension selector) has been
+      changed to make it predictable which value is selected even when
+      dealing with cubes of varying dimensionalities.
+
+      This is an incompatible change, but since the point of the operator
+      was to be used in KNN searches, it seems rather useless as-is.
+      After installing this update, any expression indexes or materialized
+      views using this operator will need to be reindexed/refreshed.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Wed, 07 Feb 2018 13:50:31 +0100
+
+postgresql-10 (10.1-3) unstable; urgency=medium
+
+  * Suppress build variability in schemapg.h.
+  * Include package version number in "extra version" so it is reported by
+    "psql --version" and friends.
+  * postgresql-10.postinst: Ignore command-with-path-in-maintainer-script.
+  * debian/rules: Set DEB_HOST_* via /usr/share/dpkg/architecture.mk.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Thu, 18 Jan 2018 13:18:14 +0100
+
+postgresql-10 (10.1-2) unstable; urgency=medium
+
+  * Drop dbg package in favor of dbgsym packages.
+  * Reimplement /usr/bin/pg_config in perl. This makes libpq-dev cross-
+    compilation friendly (Closes: #794103), and unbreaks co-installation of
+    the split dbgsym packages because we previously installed the same
+    pg_config twice.
+  * Show package version number in version().
+  * Remove actual build path from Makefile.global for reproducibility.
+
+ -- Christoph Berg <myon@debian.org>  Thu, 14 Dec 2017 21:14:32 +0100
+
+postgresql-10 (10.1-1) unstable; urgency=medium
+
+  * New upstream version.
+
+    + Ensure that INSERT ... ON CONFLICT DO UPDATE checks table permissions
+      and RLS policies in all cases (Dean Rasheed)
+
+      The update path of INSERT ... ON CONFLICT DO UPDATE requires SELECT
+      permission on the columns of the arbiter index, but it failed to check
+      for that in the case of an arbiter specified by constraint name. In
+      addition, for a table with row level security enabled, it failed to
+      check updated rows against the table's SELECT policies (regardless of
+      how the arbiter index was specified). (CVE-2017-15099)
+
+    + Fix crash due to rowtype mismatch in json{b}_populate_recordset()
+      (Michael Paquier, Tom Lane)
+
+      These functions used the result rowtype specified in the FROM ... AS
+      clause without checking that it matched the actual rowtype of the
+      supplied tuple value.  If it didn't, that would usually result in a
+      crash, though disclosure of server memory contents seems possible as
+      well. (CVE-2017-15098)
+
+    + Fix BRIN index summarization to handle concurrent table extension
+      correctly (Álvaro Herrera)
+
+      Previously, a race condition allowed some table rows to be omitted from
+      the index.  It may be necessary to reindex existing BRIN indexes to
+      recover from past occurrences of this problem.
+
+  * Remove empty conf.d directory on purge, even when postgresql-common was
+    already removed. (Closes: #877264)
+  * Remove docbook-dsssl and openjade from Build-Depends, not needed anymore.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Wed, 08 Nov 2017 10:40:59 +0100
+
+postgresql-10 (10.0-1) unstable; urgency=medium
+
+  * First PostgreSQL 10 stable release.
+
+ -- Christoph Berg <myon@debian.org>  Wed, 04 Oct 2017 20:29:51 +0200
+
+postgresql-10 (10~rc1-1) unstable; urgency=medium
+
+  * Team upload.
+  * First PostgreSQL 10 release candidate.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Tue, 19 Sep 2017 12:03:48 +0200
+
+postgresql-10 (10~beta4-1) experimental; urgency=medium
+
+  * Team upload.
+  * Fourth PostgreSQL 10 Beta release.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Tue, 29 Aug 2017 11:57:43 +0200
+
+postgresql-10 (10~beta3-1) experimental; urgency=medium
+
+  * Team upload.
+  * Third PostgreSQL 10 Beta release.
+  * debian/rules: Unconditionally use DEB_BUILD_MAINT_OPTIONS=hardening=+all.
+    The old logic is kept around for compiling on older distributions.
+  * Remove long obsolete --with-krb5 and move c/ldflags to configure switches.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Tue, 08 Aug 2017 09:49:12 +0200
+
+postgresql-10 (10~beta2-1) experimental; urgency=medium
+
+  * Team upload.
+  * Second PostgreSQL 10 Beta release.
+  * On regression test failure, show newest three log files instead of relying
+    on file age = 0 min.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Thu, 13 Jul 2017 10:08:59 +0200
+
+postgresql-10 (10~beta1-1) experimental; urgency=medium
+
+  * Team upload.
+  * First PostgreSQL 10 Beta release.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Tue, 09 Aug 2016 10:01:06 +0200
+
+postgresql-10 (10~~devel-1) UNRELEASED; urgency=medium
+
+  * New major upstream version 10; packaging based on postgresql-9.6.
+  * Merge postgresql-contrib-10 package into postgresql-10. The added
+    packaging complexity doesn't seem worth the split anymore given the extra
+    dependencies are typically very small on average systems, or already
+    installed anyway (libuuid, libxslt).
+  * Enable ICU support.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Tue, 09 Aug 2016 10:01:06 +0200

@@ -1,0 +1,28 @@
+postgresql-10 (10.3-1) unstable; urgency=medium
+
+  If you run an installation in which not all users are mutually trusting, or
+  if you maintain an application or extension that is intended for use in
+  arbitrary situations, it is strongly recommended that you read the release
+  notes regarding changes around "search_path", and take suitable steps to
+  ensure that your installation or code is secure.
+
+  Also, these changes may cause functions used in index expressions or
+  materialized views to fail during auto-analyze, or when reloading from a
+  dump.  After upgrading, monitor the server logs for such problems, and fix
+  affected functions.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Tue, 27 Feb 2018 12:57:11 +0100
+
+postgresql-10 (10.2-1) unstable; urgency=medium
+
+  If you are using contrib/cube's ~> operator, see the release notes for
+  details on the changed semantics and necessary follow-up actions.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Wed, 07 Feb 2018 13:56:26 +0100
+
+postgresql-10 (10.1-1) unstable; urgency=medium
+
+  If you are using BRIN indexes, it may be necessary to reindex existing
+  indexes. See the release notes for details.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Wed, 08 Nov 2017 10:47:26 +0100
